@@ -3,6 +3,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const taskController = require('./controllers/taskController');
+// ĐÃ XÓA DÒNG IMPORT verifyToken Ở ĐÂY ĐỂ TRÁNH LỖI TRÙNG LẶP
 
 // 1. IMPORT MODELS
 const User = require('./models/user');
@@ -25,7 +27,7 @@ mongoose.connect(dbURI)
   .then(() => console.log('🟢 Kết nối MongoDB thành công!'))
   .catch((err) => console.log('🔴 Lỗi kết nối MongoDB:', err));
 
-// 5. MIDDLEWARE XÁC THỰC TOKEN
+// 5. MIDDLEWARE XÁC THỰC TOKEN (Sẽ dùng duy nhất hàm này)
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -197,40 +199,12 @@ app.get('/api/users/search', verifyToken, async (req, res) => {
 });
 
 // Chia sẻ công việc
-app.post('/api/tasks/:id/share', verifyToken, async (req, res) => {
-  try {
-    const { email, role } = req.body;
-    const taskId = req.params.id;
+app.post('/api/tasks/:id/share', verifyToken, taskController.shareTask);
 
-    const task = await Task.findById(taskId);
-    if (!task) return res.status(404).json({ message: 'Không tìm thấy công việc' });
-
-    if (task.owner.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Chỉ người tạo mới có quyền chia sẻ' });
-    }
-
-    const targetUser = await User.findOne({ email });
-    if (!targetUser) return res.status(404).json({ message: 'Email không tồn tại' });
-
-    if (targetUser._id.toString() === req.user.id) {
-      return res.status(400).json({ message: 'Bạn không thể tự chia sẻ cho chính mình' });
-    }
-
-    const existingIndex = task.assignees.findIndex(a => a.user.toString() === targetUser._id.toString());
-    if (existingIndex > -1) {
-      task.assignees[existingIndex].role = role;
-    } else {
-      task.assignees.push({ user: targetUser._id, role });
-    }
-
-    await task.save();
-    res.status(200).json({ message: 'Chia sẻ thành công', task });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// ==========================================
+// Route gọi lấy thông báo (Đã nối thành công)
+app.get('/api/notifications', verifyToken, taskController.getNotifications);
+// Route đánh dấu thông báo đã đọc (THÊM MỚI DÒNG NÀY)
+app.put('/api/notifications/:id/read', verifyToken, taskController.markNotificationAsRead);// ==========================================
 //              KHỞI ĐỘNG SERVER
 // ==========================================
 app.listen(PORT, () => {

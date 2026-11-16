@@ -135,4 +135,46 @@ class TaskService {
       return false;
     }
   }
+  // --- HÀM LẤY DANH SÁCH THÔNG BÁO ---
+  Future<List<dynamic>> getNotifications() async {
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('jwt_token');
+
+      // 1. Khai báo thêm 2 dòng này (nhớ chỉnh port nếu Backend không phải 3000)
+      final dio = Dio();
+      final String baseUrl = 'http://10.0.2.2:3000/api';
+
+      final response = await dio.get(
+        '$baseUrl/notifications',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['notifications'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      print("🔴 Lỗi tải thông báo: $e");
+      return [];
+    }
+  }
+  // --- HÀM ĐÁNH DẤU THÔNG BÁO ĐÃ ĐỌC (XÓA CHẤM ĐỎ) ---
+  Future<bool> markNotificationAsRead(String notificationId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) return false;
+
+      final response = await ApiClient.dio.put(
+        '/notifications/$notificationId/read',
+        options: _getOptions(token),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("🔴 LỖI MARK NOTIFICATION AS READ: $e");
+      return false;
+    }
+  }
 }
