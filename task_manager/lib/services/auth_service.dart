@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
 
@@ -47,6 +48,9 @@ class AuthService {
       );
       return response.statusCode == 201;
     } catch (e) {
+      if (e is DioException) {
+        print("🔴 CHI TIẾT LỖI TỪ SERVER: ${e.response?.data}");
+      }
       print("🔴 LỖI GỌI API REGISTER: $e");
       return false;
     }

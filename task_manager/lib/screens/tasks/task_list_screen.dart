@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../models/task.dart';
+import '../../services/task_service.dart';
+import 'task_create_screen.dart';
+import 'task_detail_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -9,25 +11,29 @@ class TaskListScreen extends StatefulWidget {
 }
 
 class _TaskListScreenState extends State<TaskListScreen> {
-  // Dữ liệu giả để test UI
-  final List<Task> mockTasks = [
-    Task(
-      id: '1',
-      title: 'Thiết kế UI/UX',
-      description: 'Làm giao diện cho app Task Manager',
-      status: 'in_progress',
-      priority: 'high',
-      dueDate: DateTime.now().add(const Duration(days: 2)),
-    ),
-    Task(
-      id: '2',
-      title: 'Viết API Backend',
-      description: 'Khởi tạo Node.js và MongoDB',
-      status: 'todo',
-      priority: 'medium',
-      dueDate: DateTime.now().add(const Duration(days: 5)),
-    ),
-  ];
+  final TaskService _taskService = TaskService();
+  List<dynamic> _tasks = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTasks(); // Tự động gọi API khi mở màn hình
+  }
+
+  // Hàm gọi API lấy dữ liệu thật
+  Future<void> _fetchTasks() async {
+    setState(() => _isLoading = true);
+
+    final tasks = await _taskService.getTasks();
+
+    if (mounted) {
+      setState(() {
+        _tasks = tasks;
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,34 +42,58 @@ class _TaskListScreenState extends State<TaskListScreen> {
         title: const Text('Danh sách công việc'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              // Chuyển sang màn hình Profile sau
-            },
+            icon: const Icon(Icons.refresh), // Nút làm mới dữ liệu
+            onPressed: _fetchTasks,
           )
         ],
       ),
-      body: ListView.builder(
-        itemCount: mockTasks.length,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _tasks.isEmpty
+          ? const Center(child: Text('Chưa có công việc nào. Hãy tạo mới!'))
+          : ListView.builder(
+        itemCount: _tasks.length,
         padding: const EdgeInsets.all(16),
         itemBuilder: (context, index) {
-          final task = mockTasks[index];
+          final task = _tasks[index];
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
-              title: Text(task.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(task.description),
-              trailing: Chip(label: Text(task.status)),
-              onTap: () {
-                // Chuyển sang màn hình Chi tiết công việc
+              title: Text(
+                task['title'] ?? '',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                task['description'] ?? '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: Chip(label: Text(task['status'] ?? 'pending')),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TaskDetailScreen(
+                      taskId: task['_id'].toString(),
+                    ),
+                  ),
+                );
+                // Tự động tải lại danh sách sau khi Sửa / Xóa / Chia sẻ xong
+                _fetchTasks();
               },
             ),
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Chuyển sang màn hình Thêm công việc
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const TaskCreateScreen()),
+          );
+          if (result == true) {
+            _fetchTasks(); // Tải lại danh sách sau khi thêm thành công
+          }
         },
         child: const Icon(Icons.add),
       ),
